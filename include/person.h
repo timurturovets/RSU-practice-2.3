@@ -11,7 +11,6 @@ public:
     size_t enter_time;
     size_t floor_from;
     size_t floor_to;
-    elevator *serving_elevator;
 
     person() = default;
     person(int id, size_t weight, size_t enter_time, size_t floor_from, size_t floor_to);

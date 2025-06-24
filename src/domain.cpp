@@ -32,7 +32,7 @@ void domain::inner_run() {
 
         std::cout << std::endl << "Time now: " << time_now << std::endl;
         for (auto const &e : _elevators) {
-            std::cout << "Elevator on floor " << e.current_floor << ", state: ";
+            std::cout << "Elevator " << e.id << " on floor " << e.current_floor << ", state: ";
             switch(e.current_state) {
                 case elevator::moving_up:
                     std::cout << "moving up to " << e.floor_moving_to;
@@ -92,7 +92,69 @@ void domain::inner_run() {
 
         }
 
+        for (auto pair : _floors) { // каждому этажу устанавливаем ближайший к нему лифт на данный момент
+            size_t closest_elevator_floor = _elevators[0].current_floor;
+            elevator *closest_elevator = &_elevators[0];
+
+            //std::cout << "Checking floor: " << pair.first << std::endl;
+            for (elevator &e : _elevators) {
+                size_t val = which_number_is_closer(closest_elevator_floor, e.current_floor, pair.first);
+                //std::cout << "For elevator " << e.id << " WNIC result is: " << val << std::endl;
+                if (val == e.current_floor) {
+                    closest_elevator_floor = e.current_floor;
+                    closest_elevator = &e;
+                }
+               /* if (e.current_state == elevator::moving_up) {
+                    if (e.current_floor < pair.first) { // если этаж выше движущегося вверх лифта
+                        if (which_number_is_closer(closest_elevator_floor, e.current_floor, pair.first)
+                                == e.current_floor) {
+                            //std::cout << "here 1, new elevator is on floor: " << e.current_floor <<
+                              //        ", prev on: " << closest_elevator_floor << std::endl;
+
+                            closest_elevator_floor = e.current_floor;
+                            closest_elevator = &e;
+
+
+                        }
+                    }
+                }
+
+                if (e.current_state == elevator::moving_down) {
+                    if (e.current_floor > pair.first) {// если этаж ниже движущегося вниз лифта
+                        if (which_number_is_closer(closest_elevator_floor, e.current_floor, pair.first)
+                            == e.current_floor) {
+                            std::cout << "here 2, new elevator is on floor: " << e.current_floor <<
+                                      ", prev on: " << closest_elevator_floor << std::endl;
+                            closest_elevator_floor = e.current_floor;
+                            closest_elevator = &e;
+
+                        }
+                    }
+                }
+
+                if (e.current_state == elevator::doors_closed) {
+                    if (which_number_is_closer(closest_elevator_floor, e.current_floor, pair.first)
+                        == e.current_floor) {
+                        std::cout << "here 3, new elevator is on floor: " << e.current_floor <<
+                                  ", prev on: " << closest_elevator_floor << std::endl;
+                        closest_elevator_floor = e.current_floor;
+                        closest_elevator = &e;
+
+                    }
+                }*/
+            }
+
+            if (time_now > 25 && pair.first == 2) {
+                //std::cout << "Closest to floor " << pair.first << " elevator is currently on "
+                  //        << closest_elevator->current_floor << std::endl;
+            }
+
+            _floors[pair.first].closest_elevator = closest_elevator;
+            //std::cout << "Setting closest elevator for floor " << pair.first << " with ID: " << closest_elevator->id << std::endl;
+        }
+
         for (elevator &e : _elevators) {
+            //std::cout << "elev on fl2 id: " << _floors[2].closest_elevator->id << std::endl;
             switch(e.current_state) {
                 case elevator::doors_open: {// если двери открыты и он готов впускать / выпускать людей
                     e.buttons[e.current_floor] = false;
@@ -254,6 +316,16 @@ void domain::inner_run() {
                         }
                     }
 
+                    //std::cout << "Mff number for elevator on floor " << e.current_floor << " is " << mff_number
+                    //<< ", closest elevator on that floor is now on " << (_floors[mff_number].closest_elevator == nullptr
+                    //? 228 : (_floors[mff_number].closest_elevator)->current_floor) <<std::endl;
+
+                    if (_floors[mff_number].closest_elevator != nullptr && _floors[mff_number].closest_elevator != &e) {
+                        std::cout << "Elevator on " << (_floors[mff_number].closest_elevator)->current_floor << " floor is "
+                        << "closer than elevator on " << e.current_floor << " floor!!!" << std::endl;
+                        continue; // есть лифт ближе, он и должен приехать
+                    }
+
                     std::cout << "Found request! Elevator on floor " << e.current_floor << " is now going to " << mff_number << std::endl;
 
                     e.current_state = mff_number > e.current_floor
@@ -364,7 +436,7 @@ void domain::parse_config(const char *config_file_path) {
     _floors_count = n;
 
     for (size_t i = 0; i < n; i++) {
-        _floors[i + 1] = floor{false, false, -1, -1,
+        _floors[i + 1] = floor{false, false, -1, -1, nullptr,
                                std::vector<person>()};
         //_floors.emplace_back(n + 1);
     }
@@ -408,7 +480,11 @@ void domain::parse_and_run_tasks(const char * const * tasks_files_paths, size_t 
 }
 
 size_t domain::which_number_is_closer(size_t a, size_t b, size_t closer_to) {
-    long long value1 = std::abs(static_cast<long long>(a) - static_cast<long long>(closer_to));
-    long long value2 = std::abs(static_cast<long long>(b) - static_cast<long long>(closer_to));
-    return value1 < value2 ? value1 : value2;
+    std::size_t dist_a = (a >= closer_to) ? (a - closer_to) : (closer_to - a);
+    std::size_t dist_b = (b >= closer_to) ? (b - closer_to) : (closer_to - b);
+
+    if (dist_a < dist_b) return a;
+    if (dist_b < dist_a) return b;
+
+    return closer_to;
 }

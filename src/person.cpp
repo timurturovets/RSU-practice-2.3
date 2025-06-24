@@ -6,7 +6,6 @@ person::person(int id, size_t weight, size_t enter_time, size_t floor_from, size
     this->enter_time = enter_time;
     this->floor_from = floor_from;
     this->floor_to = floor_to;
-    serving_elevator = nullptr;
 }
 
 bool person::operator<(const person &other) const {
