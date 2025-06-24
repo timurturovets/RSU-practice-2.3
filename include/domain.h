@@ -11,9 +11,6 @@ public:
     static void run(const char * const * argv, int argc);
 
 private:
-
-    static size_t _tasks_len;
-    static size_t _elevators_count;
     static size_t _floors_count;
     static size_t _persons_count;
 

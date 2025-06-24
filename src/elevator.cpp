@@ -46,7 +46,6 @@ void elevator::add_person_inside(person &p, size_t time_now) {
     for (person &pi : persons_inside) {
         p.people_met.emplace_back(pi);
         pi.people_met.emplace_back(p);
-        std::cout << "meeting " << p.id << " with " << pi.id << std::endl;
     }
 
     persons_inside.push_back(p);
