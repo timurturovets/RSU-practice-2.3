@@ -21,6 +21,8 @@ private:
     static std::set<person> _persons_unattached;
     static std::map<size_t, floor> _floors;
 
+    static std::set<person> _persons_data;
+
     static void parse_config(char const *config_file_path);
     static void parse_and_run_tasks(char const *const *tasks_files_paths, size_t tasks_len);
     static void inner_run();

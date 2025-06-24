@@ -6,6 +6,11 @@ person::person(int id, size_t weight, size_t enter_time, size_t floor_from, size
     this->enter_time = enter_time;
     this->floor_from = floor_from;
     this->floor_to = floor_to;
+
+    elevator_enter_time = 0;
+    time_moving = 0;
+    was_overloading = false;
+    people_met = std::vector<person>();
 }
 
 bool person::operator<(const person &other) const {

@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <vector>
 #include <map>
+#include <set>
 
 #include "person.h"
 
@@ -27,7 +28,6 @@ public:
 
     std::vector<person> persons_inside;
     std::map<size_t, bool> buttons = std::map<size_t, bool>();
-    std::vector<int> stub;
 
     explicit elevator(size_t id, size_t max_weight, size_t floors_count);
     bool operator==(const elevator &other) const;
@@ -35,10 +35,12 @@ public:
     [[nodiscard]] size_t get_current_load() const;
     [[nodiscard]] bool is_floor_travel_complete(size_t time_now) const;
 
-private:
-    size_t _time_idling = 0;
-    size_t _time_moving = 0;
-    size_t _spans_between_floors_passed = 0;
-    size_t _max_load = 0;
-    size_t _overloads = 0;
+    void add_person_inside(person &p, size_t time_now);
+
+    size_t time_idling = 0;
+    size_t time_moving = 0;
+    size_t spans_between_floors_passed = 0;
+    size_t max_load = 0;
+    size_t overloads = 0;
+    size_t load_sum = 0;
 };

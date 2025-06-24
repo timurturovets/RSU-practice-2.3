@@ -1,6 +1,7 @@
 #include "../include/elevator.h"
 #include <cstdlib>
 #include <cmath>
+#include <iostream>
 
 elevator::elevator(size_t id, size_t max_weight, size_t floors_count) : persons_inside(std::vector<person>()) {
     this->id = id;
@@ -12,7 +13,6 @@ elevator::elevator(size_t id, size_t max_weight, size_t floors_count) : persons_
     moving_start_time = -1;
     floor_moving_to = -1;
     floor_moving_from = -1;
-    stub = std::vector<int>();
 
     for (size_t i = 0; i < floors_count; i++) {
         buttons[i + 1] = false;
@@ -36,4 +36,18 @@ bool elevator::is_floor_travel_complete(size_t time_now) const {
 
 bool elevator::operator==(const elevator &other) const {
     return this->id == other.id;
+}
+
+void elevator::add_person_inside(person &p, size_t time_now) {
+    p.elevator_enter_time = time_now;
+
+    load_sum += p.weight;
+
+    for (person &pi : persons_inside) {
+        p.people_met.emplace_back(pi);
+        pi.people_met.emplace_back(p);
+        std::cout << "meeting " << p.id << " with " << pi.id << std::endl;
+    }
+
+    persons_inside.push_back(p);
 }

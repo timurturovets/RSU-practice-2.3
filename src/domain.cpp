@@ -13,6 +13,7 @@ size_t domain::_persons_count = 0;
 std::vector<elevator> domain::_elevators = std::vector<elevator>();
 std::set<person> domain::_persons_unattached = std::set<person>();
 std::map<size_t, floor> domain::_floors = std::map<size_t, floor>();
+std::set<person> domain::_persons_data = std::set<person>();
 
 void domain::run(const char * const * argv, int argc) {
     if (argv == nullptr) throw std::invalid_argument("no files paths have been provided.");
@@ -51,6 +52,7 @@ void domain::inner_run() {
             std::cout << std::endl;
         }
 
+        if (time_now > 60) std::cout << "Unattached count: " << _persons_unattached.size();
         if (_persons_unattached.empty()) { // loop end condition 1
             std::cout << "No unattached people left!" << std::endl;
             bool flag = true;
@@ -144,25 +146,19 @@ void domain::inner_run() {
                 }*/
             }
 
-            if (time_now > 25 && pair.first == 2) {
-                //std::cout << "Closest to floor " << pair.first << " elevator is currently on "
-                  //        << closest_elevator->current_floor << std::endl;
-            }
-
             _floors[pair.first].closest_elevator = closest_elevator;
-            //std::cout << "Setting closest elevator for floor " << pair.first << " with ID: " << closest_elevator->id << std::endl;
         }
 
         for (elevator &e : _elevators) {
-            //std::cout << "elev on fl2 id: " << _floors[2].closest_elevator->id << std::endl;
             switch(e.current_state) {
                 case elevator::doors_open: {// если двери открыты и он готов впускать / выпускать людей
                     e.buttons[e.current_floor] = false;
 
                     for (auto it = e.persons_inside.begin(); it != e.persons_inside.end();) { // сначала выпускаем
-                        person person = *it;
-                        if (person.floor_to == e.current_floor) {
-                            std::cout << "Letting out person " << person.id << " on the floor: " << e.current_floor << std::endl;
+                        person pe = *it;
+                        if (pe.floor_to == e.current_floor) {
+                            std::cout << "Letting out pe " << pe.id << " on the floor: " << e.current_floor << std::endl;
+                            _persons_data.insert(person(pe));
                             it = e.persons_inside.erase(it);
                             continue;
                         }
@@ -171,18 +167,22 @@ void domain::inner_run() {
 
                     // впускаем
                     for (auto it = _floors[e.current_floor].persons.begin(); it != _floors[e.current_floor].persons.end(); ) {
-                        person p = *it;
+                        person &p = *it;
 
                         // если текущий человек войдёт, и будет перевес, сразу смотрим следующего
                         if (e.get_current_load() + p.weight > e.max_weight) {
                             std::cout << "Person" << p.id << " overloads on the floor " << e.current_floor;
+
+                            p.was_overloading = true;
+                            e.overloads++;
+
                             it++;
                             continue;
                         }
 
                         if (e.persons_inside.empty()) {
                             // в лифте никого нет, просто закидываем челика внутрь
-                            e.persons_inside.push_back(p);
+                            e.add_person_inside(p, time_now);
                             std::cout << "Floor: " << e.current_floor << ", first person in the elevator! " << p.id << std::endl;
 
                             e.buttons[p.floor_to] = true;
@@ -195,7 +195,7 @@ void domain::inner_run() {
                             // если направление движения - вверх, заходят только люди, едущие вверх
                                 if (p.is_moving_up()) {
                                     std::cout << "Floor: " << e.current_floor << ", new person in the elevator: " << p.id << std::endl;
-                                    e.persons_inside.push_back(p); // заталкиваем его
+                                    e.add_person_inside(p, time_now); // заталкиваем его
                                     e.buttons[p.floor_to] = true;
 
                                     it = _floors[e.current_floor].persons.erase(it); // удаляем с этажа
@@ -206,7 +206,7 @@ void domain::inner_run() {
                                 it++;
                             } else {
                                 if (!p.is_moving_up()) {
-                                    e.persons_inside.push_back(p);
+                                    e.add_person_inside(p, time_now);
                                     e.buttons[p.floor_to] = true;
 
                                     it = _floors[e.current_floor].persons.erase(it);
@@ -218,6 +218,8 @@ void domain::inner_run() {
                             }
                         }
                     }
+                    size_t load_now = e.get_current_load();
+                    if (load_now > e.max_load) e.max_load = load_now;
 
                     // на этом моменте все, кто должен был, уже вышли и зашли
                     std::cout << "Everybody, who wanted, already left and came in" << std::endl;
@@ -258,6 +260,7 @@ void domain::inner_run() {
 
                 case elevator::doors_closed: // если двери закрыты - либо пора ехать, либо лифт ждёт вызова
                 {
+                    e.time_idling++;
                     size_t floor_demanded_inside = 0;
                     // находим ближайший этаж из тех, что запрашиваемы внутри
                     for (auto pair : e.buttons) {
@@ -350,12 +353,18 @@ void domain::inner_run() {
             }
         }
     }
-
 }
 
 void domain::handle_traveling(elevator &e, size_t time_now) {
     if (e.current_state != elevator::state::moving_up && e.current_state != elevator::state::moving_down) {
         throw std::invalid_argument("state must be equal to moving_up or moving_down");
+    }
+
+    e.time_moving++;
+    e.spans_between_floors_passed++;
+
+    for (person &p : e.persons_inside) {
+        p.time_moving++;
     }
 
     if (e.is_floor_travel_complete(time_now)) {
@@ -459,7 +468,7 @@ void domain::parse_and_run_tasks(const char * const * tasks_files_paths, size_t 
         while (getline(file_stream, line)) {
             std::istringstream iss(line);
             iss >> id >> weight >> floor_from >> time >> floor_to;
-
+            std::cout << "Got id: " << id << std::endl;
             size_t s_time = std::stoull(time.substr(0, 2)) * 60 + std::stoull(time.substr(3, 2));
             _persons_unattached.insert(person(
                     std::stoi(id),
@@ -469,11 +478,40 @@ void domain::parse_and_run_tasks(const char * const * tasks_files_paths, size_t 
                     std::stoull(floor_to)
                     )
                 );
-
+            std::cout << "Unattached size: " << _persons_unattached.size() << std::endl;
             _persons_count++;
         }
+        std::cout << "Beginning persons unattached: ";
+        for (auto p : _persons_unattached) {
+            std::cout << p.id << " ";
+        }
+
+        std::cout << std::endl;
 
         inner_run();
+
+        for (person const &p : _persons_data) {
+            std::cout << "Person with ID: " << p.id << std::endl;
+            std::cout << "Entered the elevator at: " << p.elevator_enter_time << std::endl;
+            std::cout << "How much time was moving: " << p.time_moving << std::endl;
+            std::cout << "Caused overloads: " << (p.was_overloading ? "yes" : "no") << std::endl;
+            std::cout << "IDs of people they've met: ";
+            for (person const &pm : p.people_met) {
+                std::cout << pm.id << " ";
+            }
+
+            std::cout << std::endl << std::endl;
+        }
+
+        for (elevator const &e : _elevators) {
+            std::cout << "Elevator with ID: " << e.id << std::endl;
+            std::cout << "Time idling: " << e.time_idling << std::endl;
+            std::cout << "Time moving: " << e.time_moving << std::endl;
+            std::cout << "Spans between floors passed: " << e.spans_between_floors_passed << std::endl;
+            std::cout << "Load summed up: " << e.load_sum << std::endl;
+            std::cout << "Maximum load: " << e.max_load << std::endl;
+            std::cout << "Overloads: " << e.overloads << std::endl;
+        }
     }
 
     _tasks_len = tasks_len - 2;
