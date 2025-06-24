@@ -409,8 +409,6 @@ void domain::handle_traveling(elevator &e, size_t time_now) {
                     closest_demanded_floor_from_people_inside = p.floor_to;
                 }
             }
-        } else { // в лифте не осталось людей, надо искать следующий этаж или останавливаться и закрывать двери
-
         }
     }
 
@@ -447,17 +445,22 @@ void domain::parse_config(const char *config_file_path) {
     for (size_t i = 0; i < n; i++) {
         _floors[i + 1] = floor{false, false, -1, -1, nullptr,
                                std::vector<person>()};
-        //_floors.emplace_back(n + 1);
     }
 
     for (size_t i = 0; i < k; i++) {
         getline(file_stream, line);
         _elevators.emplace_back(i + 1, std::stoull(line), _floors_count);
-        std::cout << "initialized elevator with max weight " << _elevators[i].max_weight << std::endl;
     }
 }
 
 void domain::parse_and_run_tasks(const char * const * tasks_files_paths, size_t tasks_len) {
+    std::ofstream elevators_file("D:\\1elevator\\elevators_data.txt");
+    std::ofstream persons_file("D:\\1elevator\\persons_data.txt");
+
+    if (!elevators_file.is_open() || !persons_file.is_open()) {
+        throw std::ofstream::failure("output files could not be opened or created");
+    }
+
     for (size_t i = 2; i < tasks_len; i++) {
         std::ifstream file_stream(*(tasks_files_paths + i));
         std::string line, id, weight, floor_from, time, floor_to;
@@ -468,7 +471,7 @@ void domain::parse_and_run_tasks(const char * const * tasks_files_paths, size_t 
         while (getline(file_stream, line)) {
             std::istringstream iss(line);
             iss >> id >> weight >> floor_from >> time >> floor_to;
-            std::cout << "Got id: " << id << std::endl;
+
             size_t s_time = std::stoull(time.substr(0, 2)) * 60 + std::stoull(time.substr(3, 2));
             _persons_unattached.insert(person(
                     std::stoi(id),
@@ -478,29 +481,30 @@ void domain::parse_and_run_tasks(const char * const * tasks_files_paths, size_t 
                     std::stoull(floor_to)
                     )
                 );
-            std::cout << "Unattached size: " << _persons_unattached.size() << std::endl;
+
             _persons_count++;
         }
-        std::cout << "Beginning persons unattached: ";
-        for (auto p : _persons_unattached) {
-            std::cout << p.id << " ";
-        }
-
-        std::cout << std::endl;
 
         inner_run();
 
         for (person const &p : _persons_data) {
             std::cout << "Person with ID: " << p.id << std::endl;
+            persons_file << "Person with ID: " << p.id << std::endl;
             std::cout << "Entered the elevator at: " << p.elevator_enter_time << std::endl;
+            persons_file << "Entered the elevator at: " << p.elevator_enter_time << std::endl;
             std::cout << "How much time was moving: " << p.time_moving << std::endl;
+            persons_file << "How much time was moving: " << p.time_moving << std::endl;
             std::cout << "Caused overloads: " << (p.was_overloading ? "yes" : "no") << std::endl;
+            persons_file << "Caused overloads: " << (p.was_overloading ? "yes" : "no") << std::endl;
             std::cout << "IDs of people they've met: ";
+            persons_file << "IDs of people they've met: ";
             for (person const &pm : p.people_met) {
                 std::cout << pm.id << " ";
+                persons_file << pm.id << " ";
             }
 
             std::cout << std::endl << std::endl;
+            persons_file << std::endl << std::endl;
         }
 
         for (elevator const &e : _elevators) {
@@ -510,7 +514,15 @@ void domain::parse_and_run_tasks(const char * const * tasks_files_paths, size_t 
             std::cout << "Spans between floors passed: " << e.spans_between_floors_passed << std::endl;
             std::cout << "Load summed up: " << e.load_sum << std::endl;
             std::cout << "Maximum load: " << e.max_load << std::endl;
-            std::cout << "Overloads: " << e.overloads << std::endl;
+            std::cout << "Overloads: " << e.overloads << std::endl << std::endl;
+
+            elevators_file << "Elevator with ID: " << e.id << std::endl;
+            elevators_file << "Time idling: " << e.time_idling << std::endl;
+            elevators_file << "Time moving: " << e.time_moving << std::endl;
+            elevators_file << "Spans between floors passed: " << e.spans_between_floors_passed << std::endl;
+            elevators_file << "Load summed up: " << e.load_sum << std::endl;
+            elevators_file << "Maximum load: " << e.max_load << std::endl;
+            elevators_file << "Overloads: " << e.overloads << std::endl << std::endl;
         }
     }
 
